@@ -12,9 +12,9 @@
 // Set clock frequency to 4.194304MHz
 //Set configuration fuse
 #ifdef PIC12F
-#pragma DATA _CONFIG, _XT_OSC & _WDT_OFF & _CP_OFF & _MCLRE_OFF & _BOR_OFF & _PWRTE_ON
+//#pragma DATA _CONFIG, _XT_OSC & _WDT_OFF & _CP_OFF & _MCLRE_OFF & _BOR_OFF & _PWRTE_ON
 //#pragma CLOCK_FREQ 1048576
-#pragma CLOCK_FREQ 4194304
+//#pragma CLOCK_FREQ 4194304
 #else
 #pragma DATA _CONFIG, _XT_OSC & _WDT_OFF & _CP_OFF //& _BOR_OFF
 #pragma CLOCK_FREQ 4194304
