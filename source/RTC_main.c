@@ -1,27 +1,70 @@
-//#include <system.h>
+#include <xc.h>
 #define PIC12F 1
 #ifdef PIC12F
 #include <pic12lf1822.h>
 #else
-#include <PIC16LF1823.h>
+#include <pic16lf1823.h>
 #endif
 //#include <SPI.c>
 
-// Version 1.0
+// PIC12LF1822 Version 1.0
 
-// Set clock frequency to 4.194304MHz
-//Set configuration fuse
+
+//Set configuration fuses
 #ifdef PIC12F
-#pragma DATA _CONFIG, _XT_OSC & _WDT_OFF & _CP_OFF & _MCLRE_OFF & _BOR_OFF & _PWRTE_ON
-//#pragma CLOCK_FREQ 1048576
-//#pragma CLOCK_FREQ 4194304
-#else
-#pragma DATA _CONFIG, _XT_OSC & _WDT_OFF & _CP_OFF //& _BOR_OFF
-#pragma CLOCK_FREQ 4194304
-#endif
-// Interrupt service routine for 1 second clock update
+// PIC12LF1822 Configuration Bit Settings ( 8 Pin package))
 
-#define MHZ_4				// This defines a 4 or 1MHz crystal
+// 'C' source line Config statements
+
+// CONFIG1
+// Pragma block to set up Configuration Bits
+#pragma config FOSC = INTOSC    // Oscillator Selection (XT Oscillator, Crystal/resonator connected between OSC1 and OSC2 pins) - Set to Internal Oscillator
+#pragma config WDTE = OFF       // Watchdog Timer Enable (WDT disabled)
+#pragma config PWRTE = ON       // Power-up Timer Enable (PWRT disabled)
+#pragma config MCLRE = OFF      // MCLR Pin Function Select MCLE is used (MCLR/VPP pin function is RA3)
+#pragma config CP = OFF         // Flash Program Memory Code Protection (Program memory code protection is disabled)
+#pragma config CPD = OFF        // Data Memory Code Protection (Data memory code protection is disabled)
+#pragma config BOREN = OFF      // Brown-out Reset Enable (Brown-out Reset enabled)
+#pragma config CLKOUTEN = OFF   // Clock Out Enable (CLKOUT function is disabled. I/O or oscillator function on the CLKOUT pin)
+#pragma config IESO = OFF       // Internal/External Switchover (Internal/External Switchover mode is disabled)
+#pragma config FCMEN = OFF      // Fail-Safe Clock Monitor Enable (Fail-Safe Clock Monitor is enabled)
+
+// CONFIG2
+#pragma config WRT = OFF         // Flash Memory Self-Write Protection (Write protection off)
+#pragma config PLLEN = OFF       // PLL Enable (4x PLL disabled)
+#pragma config STVREN = OFF      // Stack Overflow/Underflow Reset Enable (Stack Overflow or Underflow will cause a Reset)
+#pragma config BORV = HI         // Brown-out Reset Voltage Selection (Brown-out Reset Voltage (Vbor), low trip point selected.)
+#pragma config LVP = ON          // Low-Voltage Programming Enable (Low-voltage programming enabled)
+// #pragma config statements should precede project file includes.
+// Use project enums instead of #define for ON and OFF.
+#else
+// PIC16LF1823 Configuration Bit Settings ( 14 Pin package))
+
+// 'C' source line config statements
+
+// CONFIG1
+// Pragma block to set up Configuration Bits
+#pragma config FOSC = INTOSC    // Oscillator Selection (XT Oscillator, Crystal/resonator connected between OSC1 and OSC2 pins) - Set to Internal Oscillator
+#pragma config WDTE = OFF       // Watchdog Timer Enable (WDT disabled)
+#pragma config PWRTE = OFF      // Power-up Timer Enable (PWRT disabled)
+#pragma config MCLRE = ON       // MCLR Pin Function Select MCLE is not used (MCLR/VPP pin function is MCLR)
+#pragma config CP = OFF         // Flash Program Memory Code Protection (Program memory code protection is disabled)
+#pragma config CPD = OFF        // Data Memory Code Protection (Data memory code protection is disabled)
+#pragma config BOREN = OFF      // Brown-out Reset Enable (Brown-out Reset enabled)
+#pragma config CLKOUTEN = OFF   // Clock Out Enable (CLKOUT function is disabled. I/O or oscillator function on the CLKOUT pin)
+#pragma config IESO = OFF       // Internal/External Switchover (Internal/External Switchover mode is disabled)
+#pragma config FCMEN = OFF       // Fail-Safe Clock Monitor Enable (Fail-Safe Clock Monitor is enabled)
+
+// CONFIG2
+#pragma config WRT = OFF        // Flash Memory Self-Write Protection (Write protection off)
+#pragma config PLLEN = OFF       // PLL Enable (4x PLL disabled)
+#pragma config STVREN = OFF      // Stack Overflow/Underflow Reset Enable (Stack Overflow or Underflow will cause a Reset)
+#pragma config BORV = HI        // Brown-out Reset Voltage Selection (Brown-out Reset Voltage (Vbor), low trip point selected.)
+#pragma config LVP = ON         // Low-Voltage Programming Enable (Low-voltage programming enabled)
+// #pragma config statements should precede project file includes.
+// Use project enums instead of #define for ON and OFF.
+#endif
+
 
 #define SECONDS 0
 #define MINUTES 1
@@ -39,14 +82,16 @@ unsigned char memory[40];				// This is the internal DS1307 time and control reg
 
 unsigned char SPI_flag;					// This flag tells the background that it has an SPI CS
 unsigned char SPI_Read_Write;			// This flag tells the background that it had a read or write
-unsigned char Toggle;					// This is the Toggle byte only used to divide the interrupts time by 2
+#ifndef PIC12F
+unsigned int Toggle;                    // Toggle only used for testing in 16LF1823
+#endif
 
 //Define all SPI Pins
 #ifdef PIC12F
-#define SPI_OUT     RA0                 // Define SPI SDO signal to be PIC port GP0
-#define SPI_CLK     RA1                 // Define SPI CLK signal to be PIC port GP1
-#define SPI_CS      RA2                 // Define SPI CS  signal to be PIC port GP2
-#define SPI_IN      RA3                 // Define SPI SDI signal to be PIC port GP3
+#define SPI_IN      RA0                 // Define SPI SDI signal to be PIC port RA0
+#define SPI_CLK     RA1                 // Define SPI CLK signal to be PIC port RA1
+#define SPI_CS      RA2                 // Define SPI CS  signal to be PIC port RA2
+#define SPI_OUT     RA3                 // Define SPI SDO signal to be PIC port RA3
 #else
 #define SPI_OUT     RC1                 // Define SPI SDO signal to be PIC port RC1
 #define SPI_CLK     RC2                 // Define SPI CLK signal to be PIC port RC2
@@ -55,47 +100,42 @@ unsigned char Toggle;					// This is the Toggle byte only used to divide the int
 #define TEST		RC3                 // Test output
 #endif
 
-/* ********************************** MECIRIA RTC1307-HT *****************************************
-	This program implements an emulation of a DS1307 Real Time Clock chip.
-	An Microchip PIC12F615-H is used to give an 8 pin 150C device.
+/* ********************************** D-Tech RTC1307-HT *****************************************
+	25/1/2019
+ * This program implements an emulation of a DS1307 Real Time Clock chip.
+	An Microchip PIC12LF1822-H is used to give an 8 pin 150C device.
 	It provides the RTC values dd.mm.yy hh:mm:ss plus 32 bytes of RAM implemented in this version.
 	Years are limited to 2000-2255 and Leap Years are supported.
-	Care has been taken to minimise current consumption. At 4.194304Mhz current should be around
-	400uA. At 1.048576MHz this drops to around 250uA. Lower frequency operation is possible down
-	to around 0.1MHz with an XT crystal. Delays need to be re-calculated with each new speed.
+ * The chip is internally clocked at 4MHz when active.
+ * The external Low Power Oscillator runs at 32768Hz and updates Timer 1
+ * When Timer 1 overflows (1 second) it wakes the processor from sleep and updates the clock.
+ * The External Interrupt is used as the SPI_CS	and wakes up the processor from sleep to
+ * input and output data.
+ * Overall current consumption is under 100uA.
 *************************************************************************************************/
+
 // The Wait_For_Clock function waits for a low to high transition on the SPI Clock line
 void Wait_For_Clock(void)
 {
 while(SPI_CLK)							// Wait for SPI Clock to go low
-	asm("nop");
+	asm("NOP");
 while(SPI_CLK != 1)						// Wait for SPI Clock to go high
-	asm("nop");	
+	asm("NOP");	
 }
 void Wait_For_Clock_Low(void)
 {
 while(1)
 	{
-#ifdef PIC12F
-	if(!RA1)                          // Wait for SPI Clock to go low
+	if(!SPI_CLK)				// Wait for SPI Clock to go low
 		break;
-#else
-//	if(!RC2)				// Wait for SPI Clock to go low
-		break;
-#endif
 	}
 }
 void Wait_For_Clock_High(void)
 {
 while(1)
 	{
-#ifdef PIC12F
-	if(RA1)							// Wait for SPI Clock to go high
+	if(SPI_CLK)							// Wait for SPI Clock to go high
 		break;
-#else
-//	if(RC2)							// Wait for SPI Clock to go high
-		break;
-#endif
 	}
 }
 
@@ -125,33 +165,19 @@ unsigned char SPI_Read_Address(void)
 unsigned char i, address, temp;
 
 Wait_For_Clock();						// Get the read/write clock edge
-#ifdef PIC12F
-if(RA3)
+if(SPI_IN)
 	SPI_Read_Write = 1;					// It's Read Mode
 else
 	SPI_Read_Write = 0;					// It's Write Mode
-#else
-if(RC0)
-	SPI_Read_Write = 1;					// It's Read Mode
-else
-	SPI_Read_Write = 0;					// It's Write Mode
-#endif
 // Now get the address
 address = 0;
 for(i=0;i<7;i++)						// 7 bits
 	{
 	Wait_For_Clock();					// Get the next positive clock edge
-#ifdef PIC12F
-	if(RA3)
+	if(SPI_IN)
 		address = address | 0x01;
 	else
 		address = address & 0xFE;
-#else
-	if(RC0)
-		address = address | 0x01;
-	else
-		address = address & 0xFE;
-#endif
 	if(i < 6)
 		address = address << 1;
 	}
@@ -183,17 +209,10 @@ data = 0;
 for(i = 0;i < 8;i++)					// 7 bits
 	{
 	Wait_For_Clock();					// Get the next clock edge
-#ifdef PIC12F
-	if(RA3)
+	if(SPI_IN)
 		data = data | 0x01;
 	else
 		data = data & 0xFE;
-#else
-	if(RC0)
-		data = data | 0x01;
-	else
-		data = data & 0xFE;
-#endif
 	if(i < 7)
 		data = data << 1;
 	}
@@ -203,27 +222,41 @@ data = bcd2hex(data);					// Convert the BCD data to HEX
 memory[address] = data;
 }
 
-void __interrupt(high_priority) _Timer1(void)
+// Interrupt service routine for 1 second clock update
+void interrupt Timer1(void)
 {
 unsigned char temp;
 
-	if(INTF)                            // check for SPI_CS high (external interrupt)
+#ifndef PIC12F
+if(Toggle)
+    {
+    TEST = 1;
+    Toggle = 0;
+    }
+else
+    {
+    TEST = 0;
+    Toggle = 1;
+    }
+#endif
+
+if(INTF)                            // check for SPI_CS high (INT - external interrupt)
 		{
 		SPI_flag = 1;					// set the flag for SPI_CS HIGH
 		INTF = 0;                       // clear the interrupt flag
 		return;							// external interrupt
 		}
-	TMR1H = 0;							// Clear the Timer1 count
-	TMR1L = 0;
-	TMR1IF = 0;                         // reset the timer1 Interrupt Flag
-#ifdef MHZ_4							// If its 4MHz crystal we need a software divide by 2
-	if(Toggle == 0)						// If first cycle of a Toggle - Skip
-		{
-		Toggle = 1;
-		return;
-		}
-	Toggle = 0;							// reset the Toggle
-#endif
+if (TMR1IE && TMR1IF)
+    {
+//    TEST = 1;
+
+
+    TMR1ON = 0;                         // Make sure Timer1 is stopped
+    TMR1H = 0x080;						// Set the Timer1 count to 32768
+    TMR1L = 0;                          // (it will count to 65536) to give 1 second Interrupts
+
+    TMR1IF = 0;                         // reset the timer1 Interrupt Flag
+    TMR1ON = 1;                         // Re-start Timer1
 	memory[SECONDS]++;
 	if(memory[SECONDS] > 59)
 		{
@@ -292,45 +325,53 @@ unsigned char temp;
 					}
 				}
 		}
+
+
+//    TEST = 0;
+    }
 }
 
 
 // main routine does a low current background loop
-// nop's are very low current!
+// NOP's are very low current!
 main()
 {
+int Delay;
 unsigned char Read_Write_Address;
-
+OSCCON = 0xEA;                             // Set No 4XPLL, 4MHz, Internal Oscillator EA = 4MHz, CA = 0.5MHz
 #ifdef PIC12F
-// Set GP0=In (to save current), GP1= In, GP2=In, GP3=Inclear
+// Set RA0=In SPI_OUT (to save current), RA1= In (SPI_CLK), RA2=In (SPI_CS), RA3=In (SPI_SDI), RA4 and RA5 to In (32k Oscillator pins)
 TRISA = 0x3F;
 #else
-TRISC.0 = 1;    					// Enable SPI_SI intput on RC0
-TRISC.2 = 1;    					// Enable SPI_CLK input on RC2
-//clear_bit(trisc,1);					// Enable SPI_OUT input on RC1
-TRISA.2 = 1;    					// Enable SPI_CS input on RA2
-TRISC.3 = 0;    					// Enable TEST on RC3
+TRISC = TRISC | 1;    					// Enable SPI_IN input on RC0
+TRISC = TRISC | 2;    					// Enable SPI_OUT input on RC1 (to save current))
+TRISC = TRISC | 4;    					// Enable SPI_CLK input on RC2
+TRISA = TRISA | 4;    					// Enable SPI_CS input on RA2
+TRISC = TRISC & 0xF7;    				// Enable TEST Output on RC3
 #endif
 
-ANSELA = 0;							// Disable analog inputs
-Toggle = 0;
-#ifdef MHZ_4
-T1CKPS0 = 1;                        // Set the Timer1 prescale to 1:8
-#else
-clear_bit(t1con,T1CKPS0);			// Set the Timer1 prescale to 1:4
-#endif
-T1CKPS1 = 1;                        // This bit is set fot both /4 and /8
-TMR1H = 0;							// Clear the Timer1 count
-TMR1L = 0;
+ANSELA = 0;							// Disable analogue inputs
 
+TMR1ON = 0;                         // Make sure Timer1 is stopped
+TMR1H = 0x080;                       // Set the Timer1 count to 32768 (it will count up to 65536))
+TMR1L = 0;                          // to give a 1 second count
+TMR1IE = 1;                         // Enable the Timer1 bit in the PIE1
+TMR1GE = 0;                         // Disable the Timer1 bit in the GIE (Gate))
+T1CON = T1CON | 0x4;                // Set the T1SYNC bit to not Synchronise
+TMR1CS0 = 0;                        // Timer1 CS2 Disabled
+TMR1CS1 = 1;                        // Timer1 CS1 Enabled
+T1CKPS0 = 0;                        // Set the Timer1 Pre-scale to 1:1
+T1CKPS1 = 0;
+T1OSCEN = 1;                        // Timer1 External Oscillator Select = 1
+for(Delay = 0;Delay < 10000;Delay++) // Delay for 32KHz oscillator to settle
+    {
+    }
+
+TMR1IF = 0;                         // Clear any Timer1 Interrupts
 INTEDG = 1;                         // Set SPI_CS Interrupt to positive edge
-INTF = 0;                           // Clear the Ext Int Flag
+INTF = 0;                           // Clear the Ext Interrupt Flag
+PEIE = 1;                           // Enable the all peripheral Interrupts
 
-TMR1IE = 1;                         // Set the Timer1 Interrupt enable bit
-PEIE = 1;                           // Enable the Timer1 Interrupt
-//NOT_T1SYNC = 1;                     // Don't use Sync
-//TMR1CS = 0;                         // Select internal clock
-T1OSCEN = 1;
 INTE = 1;                           // Enable INT external interrupt
 GIE = 1;                            // Global Enable Interrupts
 TMR1ON = 1;                         // Turn on timer1
@@ -342,50 +383,35 @@ memory[DAY] = 7;
 memory[DATE] = 1;
 memory[MONTH] = 1;
 memory[YEAR] = 12;
-
+int i,j;
 while(1)
-	{
-//RA0 = 1;		// TEST TEST TEST
-	asm("nop");												// nop is the lowest power instruction.
-	asm("nop");												// By having lots of nop's here we can
-	asm("nop");												// minimise power consumption.
-	asm("nop");
-	asm("nop");												// 32 nop's plus 1 test and jump
-	asm("nop");												// gives lowest power and a delay
-	asm("nop");												// of
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	asm("nop");
-	if(SPI_flag == 1)									// If SPI_CS was set, go into SPI routines
+    {
+        SLEEP();                                        // Go to Sleep until Timer1 or External Interrupt
+ 		asm("NOP");									// Wait for Sleep to go inactive
+		asm("NOP");									// Wait for Sleep to go inactive
+   
+    if(SPI_flag == 1)									// If SPI_CS was set, go into SPI routines
 		{
-		TRISA = 0x3E;									// enable the SPI OUT (gpio0) line
-		RA0 = 1;                                        // set SPI output to 1
+#ifdef PIC12F
+		TRISA = 0x37;									// enable the SPI OUT (RA3) line
+#else
+    TRISC = TRISC & 0x3D;								// enable the SPI OUT (RC1) line
+#endif
+		SPI_OUT = 1;                                    // set SPI Output to 1
 		SPI_flag = 0;									// reset the SPI_CS found flag
-	//	delay_10us(1);									// Delay to allow SPI CS debounce
-		if(SPI_CS != 1)									// Check SPI CS is still there
-			continue;									// Error SPI_CS not set - ignor
+        asm("NOP");                                     // 10us Delay to allow SPI CS de-bounce
+        asm("NOP");
+        asm("NOP");
+        asm("NOP");
+        asm("NOP");
+        asm("NOP");
+        asm("NOP");
+        asm("NOP");
+        asm("NOP");
+        asm("NOP");
+        
+        if(SPI_CS != 1)									// Check SPI CS is still there
+			continue;									// Error SPI_CS not set - ignore
 		Read_Write_Address = SPI_Read_Address();		// Look at the SPI Address
 		if(SPI_Read_Write)
 			SPI_Read_Byte(Read_Write_Address);			// If it's READ send the byte to the SPI	
@@ -393,9 +419,13 @@ while(1)
 			SPI_Write_Byte(Read_Write_Address);			// If it's WRITE, write the byte to memory
 		SPI_flag = 0;									// reset the SPI_CS found flag
 		while(SPI_CS == 1)
-			asm("nop");										// Wait for SPI_CS 	to go inactive
-		TRISA = 0x3F;									// Disable the SPI OUT line to save current
-		}
-	}
+			asm("NOP");									// Wait for SPI_CS 	to go inactive
+#ifdef PIC12F
+		TRISA = 0x3F;									// Disable the SPI_OUT line (RA3) to save current
+#else
+        TRISC = TRISC | 2;                              // Disable the SPI_OUT line (RC1) to save current)
+#endif
+        }    
+    }
 }
 
